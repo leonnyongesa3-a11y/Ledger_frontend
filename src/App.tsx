@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from "react"
+import { useEffect, useState, type ReactNode } from "react"
+import { addTransaction } from "./api/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -462,19 +463,68 @@ function Transactions() {
   const [form, setForm] = useState(BLANK_TX)
   const [filter, setFilter] = useState<"all" | "credit" | "debit">("all")
 
-  function addTx() {
+  const API_URL = "http://localhost:5000/api/transactions"
+
+  // Fetch transactions from backend
+  async function getTransactions() {
+    try {
+      const response = await fetch(API_URL)
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch transactions")
+      }
+
+      const data = await response.json()
+      setItems(data)
+
+    } catch (error) {
+      console.error("Error fetching transactions:", error)
+    }
+  }
+
+  // Load transactions when page opens
+  useEffect(() => {
+    getTransactions()
+  }, [])
+
+
+  async function addTx() {
     if (!form.merchant || !form.amount || !form.date) return
-    const tx: Transaction = {
-      id: Date.now().toString(),
+
+    const transaction = {
       merchant: form.merchant,
       category: form.type === "credit" ? "Income" : form.category,
       date: form.date,
       amount: parseAmount(form.amount),
       type: form.type,
-      icon: form.type === "credit" ? "💳" : (CATEGORY_ICONS[form.category] ?? "💡"),
+      icon:
+        form.type === "credit"
+          ? "💳"
+          : (CATEGORY_ICONS[form.category] ?? "💡")
     }
-    setItems((prev) => [tx, ...prev])
-    setForm(BLANK_TX)
+
+    try {
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(transaction)
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to create transaction")
+      }
+
+      const savedTransaction = await response.json()
+
+      setItems((prev) => [savedTransaction, ...prev])
+
+      // Reset form
+      setForm(BLANK_TX)
+    } catch (error) {
+      console.error("Error adding transaction:", error)
+    }
   }
 
   const visible = items.filter((t) => filter === "all" || t.type === filter)
@@ -1228,3 +1278,4 @@ export default function App() {
     </div>
   )
 }
+
