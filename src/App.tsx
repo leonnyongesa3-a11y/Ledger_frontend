@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -115,7 +115,7 @@ function ArrowDownIcon() {
 
 // ─── Nav config ───────────────────────────────────────────────────────────────
 
-const NAV: { id: NavItemId; label: string; icon: () => JSX.Element }[] = [
+const NAV: { id: NavItemId; label: string; icon: () => ReactNode }[] = [
   { id: "dashboard",    label: "Dashboard",    icon: GridIcon },
   { id: "transactions", label: "Transactions", icon: ListIcon },
   { id: "savings",      label: "Savings",      icon: PiggyIcon },
@@ -134,7 +134,7 @@ function parseAmount(s: string): number {
 
 // ─── Shared UI ────────────────────────────────────────────────────────────────
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-xs font-medium tracking-widest uppercase" style={{ color: "var(--color-muted)" }}>{label}</label>
@@ -874,7 +874,7 @@ function Savings() {
 
 
 function ProfileView() {
-  const [profile, setProfile] = useState({
+  const [profile, setProfile] = useState<Record<string, string>>({
     name: "", email: "", phone: "", dob: "", country: "", currency: "USD — US Dollar"
   })
 
@@ -897,12 +897,6 @@ function ProfileView() {
           <p className="text-sm" style={{ color: profile.email ? "var(--color-muted)" : "var(--color-dim)" }}>
             {profile.email || "your@email.com"}
           </p>
-        </div>
-        <div
-          className="px-3 py-1.5 rounded-lg text-xs font-semibold"
-          style={{ background: "var(--color-green-dim)", color: "var(--color-green)", border: "1px solid rgba(16,216,118,0.15)" }}
-        >
-          Pro Plan
         </div>
       </div>
 
@@ -931,10 +925,205 @@ function ProfileView() {
     </div>
   )
 }
+
+function Login({ onLogin, onBack, onGoToRegister }: { onLogin: () => void; onBack: () => void; onGoToRegister: () => void }) {
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!email || !password) {
+      setError("Please enter both email and password.")
+      return
+    }
+    setError("")
+    onLogin()
+  }
+
+  return (
+    <div
+      className="flex items-center justify-center min-h-screen w-full"
+      style={{ background: "var(--color-canvas)" }}
+    >
+      <div
+        className="w-full max-w-sm rounded-xl p-8 flex flex-col gap-6"
+        style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
+      >
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "var(--color-green)" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#060d1f" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+            </svg>
+          </div>
+          <span className="font-bold text-base tracking-tight" style={{ color: "var(--color-text)" }}>Ledger</span>
+        </div>
+
+        <div>
+          <h1 className="text-xl font-bold tracking-tight" style={{ color: "var(--color-text)" }}>Welcome back</h1>
+          <p className="text-sm mt-1" style={{ color: "var(--color-muted)" }}>Log in to your account</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <Field label="Email">
+            <Input value={email} onChange={setEmail} placeholder="you@example.com" />
+          </Field>
+          <Field label="Password">
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="px-3 py-2.5 rounded-lg text-sm outline-none"
+              style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-border-bright)", color: "var(--color-text)" }}
+            />
+          </Field>
+
+          {error && <p className="text-xs" style={{ color: "var(--color-red)" }}>{error}</p>}
+
+          <button
+            type="submit"
+            className="w-full py-2.5 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90"
+            style={{ background: "var(--color-green)", color: "#060d1f" }}
+          >
+            Log In
+          </button>
+        </form>
+
+        <button
+          onClick={onBack}
+          className="text-xs text-center transition-opacity hover:opacity-70"
+          style={{ color: "var(--color-muted)" }}
+        >
+          ← Back to dashboard
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function Register({ onRegister, onBack }: { onRegister: () => void; onBack: () => void }) {
+  const [name, setName] = useState("")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [error, setError] = useState("")
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!name || !email || !password || !confirmPassword) {
+      setError("Please fill in all fields.")
+      return
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.")
+      return
+    }
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.")
+      return
+    }
+    setError("")
+    onRegister()
+  }
+
+  return (
+    <div
+      className="flex items-center justify-center min-h-screen w-full"
+      style={{ background: "var(--color-canvas)" }}
+    >
+      <div
+        className="w-full max-w-sm rounded-xl p-8 flex flex-col gap-6"
+        style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
+      >
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "var(--color-green)" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#060d1f" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+            </svg>
+          </div>
+          <span className="font-bold text-base tracking-tight" style={{ color: "var(--color-text)" }}>Ledger</span>
+        </div>
+
+        <div>
+          <h1 className="text-xl font-bold tracking-tight" style={{ color: "var(--color-text)" }}>Create your account</h1>
+          <p className="text-sm mt-1" style={{ color: "var(--color-muted)" }}>Start tracking your finances</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <Field label="Full Name">
+            <Input value={name} onChange={setName} placeholder="Alex Kim" />
+          </Field>
+          <Field label="Email">
+            <Input value={email} onChange={setEmail} placeholder="you@example.com" />
+          </Field>
+          <Field label="Password">
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="px-3 py-2.5 rounded-lg text-sm outline-none w-full"
+              style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-border-bright)", color: "var(--color-text)" }}
+            />
+          </Field>
+          <Field label="Confirm Password">
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="••••••••"
+              className="px-3 py-2.5 rounded-lg text-sm outline-none w-full"
+              style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-border-bright)", color: "var(--color-text)" }}
+            />
+          </Field>
+
+          {error && <p className="text-xs" style={{ color: "var(--color-red)" }}>{error}</p>}
+
+          <button
+            type="submit"
+            className="w-full py-2.5 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90"
+            style={{ background: "var(--color-green)", color: "#060d1f" }}
+          >
+            Create Account
+          </button>
+        </form>
+
+        <button
+          onClick={onBack}
+          className="text-xs text-center transition-opacity hover:opacity-70"
+          style={{ color: "var(--color-muted)" }}
+        >
+          ← Back to log in
+        </button>
+      </div>
+    </div>
+  )
+}
 // ─── App shell ────────────────────────────────────────────────────────────────
 
 export default function App() {
   const [activeNav, setActiveNav] = useState<NavItemId>("dashboard")
+  const [authView, setAuthView] = useState<"none" | "login" | "register">("none")
+
+  if (authView === "login") {
+    return (
+      <Login
+        onLogin={() => setAuthView("none")}
+        onBack={() => setAuthView("none")}
+        onGoToRegister={() => setAuthView("register")}
+      />
+    )
+  }
+
+  if (authView === "register") {
+    return (
+      <Register
+        onRegister={() => setAuthView("none")}
+        onBack={() => setAuthView("login")}
+      />
+    )
+  }
 
   return (
     <div
@@ -976,7 +1165,8 @@ export default function App() {
         </nav>
 
         <div className="p-3" style={{ borderTop: "1px solid var(--color-border)" }}>
-          <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/[0.03] cursor-pointer transition-colors">
+          <div onClick={() => setAuthView("login")}
+           className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/[0.03] cursor-pointer transition-colors">
             <div
               className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
               style={{ background: "linear-gradient(135deg, #3b82f6, #a855f7)", color: "#fff" }}
@@ -988,7 +1178,7 @@ export default function App() {
               <div className="text-xs truncate" style={{ color: "var(--color-muted)" }}>Set up in Profile</div>
             </div>
             <button
-              onClick={() => setActiveNav("profile")}
+              onClick={(e) => { e.stopPropagation(); setActiveNav("profile") }}
               className="ml-auto flex-shrink-0 transition-colors hover:text-white"
               style={{ color: "var(--color-dim)" }}
             >
