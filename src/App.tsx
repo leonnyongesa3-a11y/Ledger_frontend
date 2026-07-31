@@ -687,7 +687,7 @@ function Transactions() {
 const GOAL_COLORS = ["#10d876", "#3b82f6", "#a855f7", "#f59e0b", "#f43f5e", "#14b8a6", "#f97316", "#ec4899"]
 
 interface SavingsGoal {
-  id: string; name: string; target: string; saved: string; color: string; deadline: string; note: string
+  id: string; name: string; target: string; saved: string; color: string; deadline: string; note: string; progress: number; remaining: number;
 }
 
 function Savings() {
@@ -696,17 +696,109 @@ function Savings() {
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
 
-  function saveGoal() {
-    if (!form.name || !form.target) return
-    if (editId) {
-      setGoals((prev) => prev.map((g) => g.id === editId ? { ...form, id: editId } : g))
-      setEditId(null)
-    } else {
-      setGoals((prev) => [...prev, { ...form, id: Date.now().toString() }])
-    }
-    setForm({ name: "", target: "", saved: "", color: GOAL_COLORS[0], deadline: "", note: "" })
-    setShowForm(false)
+  useEffect(() => {
+    loadGoals()
+  }, [])
+
+  async function loadGoals() {
+    const token = localStorage.getItem("token")
+    if (!token) return
+
+    const response = await fetch(`${API}/savings/`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+
+    const data = await response.json()
+    console.log(data)
+
+    if (!response.ok) return
+    if (!Array.isArray(data)) return
+
+    setGoals(data.map((goal: any) => ({
+      id: String(goal.id),
+      name: goal.name,
+      target: String(goal.target),
+      saved: String(goal.saved),
+      color: goal.color,
+      deadline: goal.deadline || "",
+      note: goal.note || "",
+      progress: goal.progress,
+      remaining: goal.remaining,
+    })))
   }
+
+  async function deleteGoal(id: string) {
+  const token = localStorage.getItem("token");
+
+  const response = await fetch(`${API}/savings/${id}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (response.ok) {
+    loadGoals();
+  }
+}
+
+  async function saveGoal() {
+    if (!form.name || !form.target) return;
+
+    const token = localStorage.getItem("token");
+
+    const body = {
+      name: form.name,
+      target: Number(form.target),
+      saved: Number(form.saved || 0),
+      color: form.color,
+      deadline: form.deadline || null,
+      note: form.note,
+    };
+
+  let response;
+
+  if (editId) {
+    response = await fetch(`${API}/savings/${editId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    });
+  } else {
+    response = await fetch(`${API}/savings/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    });
+  }
+
+  if (!response.ok) {
+    alert("Unable to save savings goal.");
+    return;
+  }
+
+  await loadGoals();
+
+  setForm({
+    name: "",
+    target: "",
+    saved: "",
+    color: GOAL_COLORS[0],
+    deadline: "",
+    note: "",
+  });
+
+  setEditId(null);
+  setShowForm(false);
+}
 
   function startEdit(goal: SavingsGoal) {
     setForm({ name: goal.name, target: goal.target, saved: goal.saved, color: goal.color, deadline: goal.deadline, note: goal.note })
@@ -717,6 +809,7 @@ function Savings() {
   const totalTarget = goals.reduce((s, g) => s + parseAmount(g.target), 0)
   const totalSaved  = goals.reduce((s, g) => s + parseAmount(g.saved), 0)
   const overallPct  = totalTarget > 0 ? Math.min((totalSaved / totalTarget) * 100, 100) : 0
+
 
   return (
     <div className="flex flex-col gap-6">
@@ -838,11 +931,11 @@ function Savings() {
       {goals.length > 0 && (
         <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}>
           {goals.map((goal) => {
-            const saved  = parseAmount(goal.saved)
-            const target = parseAmount(goal.target)
-            const pct    = target > 0 ? Math.min((saved / target) * 100, 100) : 0
+            const saved  = Number(goal.saved)
+            const target = Number(goal.target)
+            const pct    = goal.progress
             const done   = pct >= 100
-            const remaining = Math.max(target - saved, 0)
+            const remaining = goal.remaining
 
             return (
               <div
@@ -905,7 +998,7 @@ function Savings() {
                     Edit
                   </button>
                   <button
-                    onClick={() => setGoals((prev) => prev.filter((g) => g.id !== goal.id))}
+                    onClick={() => deleteGoal(goal.id)}
                     className="py-1.5 px-3 rounded-md text-xs font-medium transition-opacity hover:opacity-70"
                     style={{ background: "var(--color-red-dim)", color: "var(--color-red)", border: "1px solid rgba(244,63,94,0.2)" }}
                   >
