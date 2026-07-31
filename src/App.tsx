@@ -925,9 +925,83 @@ function Savings() {
 
 
 function ProfileView() {
-  const [profile, setProfile] = useState<Record<string, string>>({
-    name: "", email: "", phone: "", dob: "", country: "", currency: "USD — US Dollar"
-  })
+const [profile, setProfile] = useState({
+  name: "",
+  email: "",
+  phone: "",
+  dob: "",
+  country: "",
+  currency: ""
+})
+
+const API = "http://localhost:5000/api"
+
+useEffect(() => {
+  async function loadProfile() {
+    const token = localStorage.getItem("token")
+
+    if (!token) return
+
+    const response = await fetch("http://localhost:5000/api/auth/profile", {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+
+    if (!response.ok) return
+
+    const user = await response.json()
+
+    localStorage.setItem("user", JSON.stringify(user))
+
+    setProfile({
+      name: user.name || "",
+      email: user.email || "",
+      phone: user.phone || "",
+      dob: user.date_of_birth || "",
+      country: user.country || "",
+      currency: user.currency || ""
+    })
+  }
+
+  loadProfile()
+}, [])
+
+    async function saveProfile() {
+  const token = localStorage.getItem("token");
+
+  const response = await fetch(`${API}/auth/profile`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      name: profile.name,
+      email: profile.email,
+      phone: profile.phone,
+      country: profile.country,
+      currency: profile.currency,
+      date_of_birth: profile.dob,
+    }),
+  });
+
+  const data = await response.json();
+
+  if (response.ok) {
+    alert("Profile updated successfully!");
+    setProfile({
+      name: data.user.name || "",
+      email: data.user.email || "",
+      phone: data.user.phone || "",
+      dob: data.user.date_of_birth || "",
+      country: data.user.country || "",
+      currency: data.user.currency || "",
+    });
+  } else {
+    alert(data.error || "Failed to update profile");
+  }
+}
 
   return (
     <div className="flex flex-col gap-6">
@@ -966,13 +1040,28 @@ function ProfileView() {
         ].map(({ key, label, placeholder }) => (
           <Field key={key} label={label}>
             <Input
-              value={profile[key]}
+              value={profile[key as keyof typeof profile]}
               onChange={(v) => setProfile((p) => ({ ...p, [key]: v }))}
               placeholder={placeholder}
             />
           </Field>
         ))}
       </div>
+
+      <div className="col-span-2">
+  <button
+    onClick={saveProfile}
+    className="px-5 py-2 rounded-lg"
+    style={{
+      background: "var(--color-green)",
+      color: "#000",
+      fontWeight: 600,
+    }}
+  >
+    Save Changes
+  </button>
+</div>
+
     </div>
   )
 }
@@ -1070,14 +1159,25 @@ async function handleSubmit(e: React.FormEvent) {
             Log In
           </button>
         </form>
+        <div className="flex flex-col gap-3">
+  <button
+    type="button"
+    onClick={onBack}
+    className="text-xs text-center transition-opacity hover:opacity-70"
+    style={{ color: "var(--color-muted)" }}
+  >
+    ← Back to Profile
+  </button>
 
-        <button
-          onClick={onBack}
-          className="text-xs text-center transition-opacity hover:opacity-70"
-          style={{ color: "var(--color-muted)" }}
-        >
-          ← Back to dashboard
-        </button>
+  <button
+    type="button"
+    onClick={onGoToRegister}
+    className="text-sm font-semibold transition-opacity hover:opacity-80"
+    style={{ color: "var(--color-green)" }}
+  >
+    Don't have an account? Register
+  </button>
+</div>
       </div>
     </div>
   )
@@ -1090,23 +1190,57 @@ function Register({ onRegister, onBack }: { onRegister: () => void; onBack: () =
   const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState("")
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!name || !email || !password || !confirmPassword) {
-      setError("Please fill in all fields.")
-      return
-    }
-    if (password !== confirmPassword) {
-      setError("Passwords do not match.")
-      return
-    }
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters.")
-      return
-    }
-    setError("")
-    onRegister()
+const API = "http://localhost:5000/api"
+
+async function handleSubmit(e: React.FormEvent) {
+  e.preventDefault()
+
+  if (!name || !email || !password || !confirmPassword) {
+    setError("Please fill in all fields.")
+    return
   }
+
+  if (password !== confirmPassword) {
+    setError("Passwords do not match.")
+    return
+  }
+
+  if (password.length < 8) {
+    setError("Password must be at least 8 characters.")
+    return
+  }
+
+  try {
+    const response = await fetch(`${API}/auth/register`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        name,
+        email,
+        password
+      })
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      setError(data.error)
+      return
+    }
+
+    // Save authentication
+    localStorage.setItem("token", data.token)
+    localStorage.setItem("user", JSON.stringify(data.user))
+
+    // Enter the application
+    onRegister()
+
+  } catch {
+    setError("Unable to connect to server.")
+  }
+}
 
   return (
     <div
@@ -1185,12 +1319,23 @@ function Register({ onRegister, onBack }: { onRegister: () => void; onBack: () =
 
 export default function App() {
   const [activeNav, setActiveNav] = useState<NavItemId>("dashboard")
-  const [authView, setAuthView] = useState<"none" | "login" | "register">("none")
+
+  const [loggedIn, setLoggedIn] = useState(
+  !!localStorage.getItem("token")
+)
+
+  const [authView, setAuthView] = useState<"none" | "login" | "register">(
+  loggedIn ? "none" : "login"
+)
 
   if (authView === "login") {
     return (
       <Login
-        onLogin={() => setAuthView("none")}
+        onLogin={() => {
+          setLoggedIn(true)
+          setAuthView("none")
+        }
+        }
         onBack={() => setAuthView("none")}
         onGoToRegister={() => setAuthView("register")}
       />
@@ -1200,7 +1345,10 @@ export default function App() {
   if (authView === "register") {
     return (
       <Register
-        onRegister={() => setAuthView("none")}
+        onRegister={() => {
+          setLoggedIn(true)
+          setAuthView("none")
+        }}
         onBack={() => setAuthView("login")}
       />
     )
