@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react"
-import { addTransaction } from "./api/api";
+
+const API = "http://localhost:5000/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
