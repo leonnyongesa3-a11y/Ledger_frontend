@@ -982,15 +982,45 @@ function Login({ onLogin, onBack, onGoToRegister }: { onLogin: () => void; onBac
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!email || !password) {
-      setError("Please enter both email and password.")
+  const API = "http://localhost:5000/api"
+
+async function handleSubmit(e: React.FormEvent) {
+  e.preventDefault()
+
+  if (!email || !password) {
+    setError("Please enter both email and password.")
+    return
+  }
+
+  try {
+    const response = await fetch(`${API}/auth/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        email,
+        password
+      })
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      setError(data.error)
       return
     }
+
+    localStorage.setItem("token", data.token)
+    localStorage.setItem("user", JSON.stringify(data.user))
+
     setError("")
     onLogin()
+
+  } catch {
+    setError("Unable to connect to server.")
   }
+}
 
   return (
     <div
