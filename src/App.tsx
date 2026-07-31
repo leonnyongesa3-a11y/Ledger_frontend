@@ -468,25 +468,43 @@ function Transactions() {
 
   // Fetch transactions from backend
   async function getTransactions() {
-    try {
-      const response = await fetch(API_URL)
+  const token = localStorage.getItem("token")
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch transactions")
-      }
+  try {
+    const response = await fetch(API_URL, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
 
-      const data = await response.json()
-      setItems(data)
-
-    } catch (error) {
-      console.error("Error fetching transactions:", error)
+    if (!response.ok) {
+      throw new Error("Failed to fetch transactions")
     }
+
+    const data = await response.json()
+    setItems(data)
+  } catch (error) {
+    console.error("Error fetching transactions:", error)
+  }
+}
+
+  async function deleteTransaction(id: string) {
+    const token = localStorage.getItem("token");
+
+    const response = await fetch(`${API_URL}/${id}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+  if (!response.ok) {
+    console.error("Failed to delete transaction");
+    return;
   }
 
-  // Load transactions when page opens
-  useEffect(() => {
-    getTransactions()
-  }, [])
+  await getTransactions();
+}
 
 
   async function addTx() {
@@ -505,27 +523,27 @@ function Transactions() {
     }
 
     try {
-      const response = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(transaction)
-      })
+  const token = localStorage.getItem("token")
 
-      if (!response.ok) {
-        throw new Error("Failed to create transaction")
-      }
+  const response = await fetch(API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(transaction),
+  })
 
-      const savedTransaction = await response.json()
+  if (!response.ok) {
+    throw new Error("Failed to create transaction")
+  }
 
-      setItems((prev) => [savedTransaction, ...prev])
+  await getTransactions()
 
-      // Reset form
-      setForm(BLANK_TX)
-    } catch (error) {
-      console.error("Error adding transaction:", error)
-    }
+  setForm(BLANK_TX)
+} catch (error) {
+  console.error("Error adding transaction:", error)
+}
   }
 
   const visible = items.filter((t) => filter === "all" || t.type === filter)
@@ -667,10 +685,13 @@ function Transactions() {
                   {tx.type === "credit" ? "+" : "−"}${fmt(tx.amount)}
                 </div>
                 <button
-                  onClick={() => setItems((prev) => prev.filter((t) => t.id !== tx.id))}
+                  onClick={() => {
+                    console.log("Delete clicked", tx.id);
+                    deleteTransaction(tx.id);
+                  }}
                   className="opacity-0 group-hover:opacity-100 transition-opacity ml-2"
                   style={{ color: "var(--color-dim)" }}
-                >
+>
                   <TrashIcon />
                 </button>
               </div>
@@ -1435,6 +1456,15 @@ export default function App() {
     )
   }
 
+  function logout() {
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+
+  setLoggedIn(false);
+  setAuthView("login");
+  setActiveNav("dashboard");
+}
+
   if (authView === "register") {
     return (
       <Register
@@ -1486,7 +1516,20 @@ export default function App() {
           })}
         </nav>
 
-        <div className="p-3" style={{ borderTop: "1px solid var(--color-border)" }}>
+        <div className="p-3">
+          <button
+            onClick={logout}
+            className="w-full mb-3 px-3 py-2 rounded-lg text-sm font-semibold"
+            style={{
+              background: "#ef4444",
+              color: "#fff",
+            }}
+  >
+    Log Out
+  </button>
+
+  <div
+        style={{ borderTop: "1px solid var(--color-border)" }}>
           <div onClick={() => setAuthView("login")}
            className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/[0.03] cursor-pointer transition-colors">
             <div
@@ -1508,6 +1551,7 @@ export default function App() {
             </button>
           </div>
         </div>
+      </div>
       </aside>
 
       <main className="flex-1 flex flex-col ml-56 min-h-screen">
